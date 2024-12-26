@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="Visual Instruction Tuning">
+  <meta name="keywords" content="multimodal chatbot">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BioMed-VITAL</title>
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.min.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="images/logo.png">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/js/all.min.js"></script>
+  <script type="module" src="https://gradio.s3-us-west-2.amazonaws.com/4.16.0/gradio.js"></script>
+</head>
+
+<style>
+
+  .text-container {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center; /* 水平居中 */
+      align-items: center;     /* 垂直居中 */
+      height: 120px;           /* 设置容器的高度 */
+  }
+
+  .contrast-text {
+      font-size: 30px;         /* 调大字体大小 */
+      margin: 0;               /* 去除默认的上下边距 */
+  }
+
+  .image-slider {
+      position: relative;
+      width: 80%;   /* 容器宽度为90% */
+      height: 550px; /* 容器高度，可以根据需要调整 */
+      margin: 0 auto;
+      overflow: visible;
+  }
+
+  .slider-image {
+      position: absolute;
+      top: -3%;
+      left: 5%;
+      width: 90%;  /* 宽度100%填充容器 */
+      height: 90%; /* 高度100%填充容器 */
+      object-fit: cover;  /* 让图片按比例填充容器，保持居中 */
+      opacity: 0;    /* 默认隐藏图片 */
+      transition: opacity 1.5s ease-in-out;  /* 渐变效果 */
+  }
+
+  .slider-image.active {
+      opacity: 1;   /* 只有拥有active类的图片才会显示 */
+      z-index: 10;
+  }
+
+
+  .slider-item {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      opacity: 0;  /* 默认不显示 */
+      transition: opacity 1.5s ease-in-out;
+  }
+
+  .slider-item.active {
+      opacity: 1;  /* 当前显示的图片和问题 */
+  }
+
+
+
+  .question {
+      font-family: 'Caveat', cursive;
+      display: block;  /* 让其成为块级元素，确保宽度能正常控制 */
+      opacity: 0;      /* 默认不可见 */
+      position: absolute;
+      top: 90%;         /* 控制问题的垂直位置 */
+      left: 50%;       /* 水平居中 */
+      transform: translate(-50%, 0);  /* 确保居中 */
+      color: rgba(0, 149, 255, 0.789);
+      font-size: 35px;  /* 字体大小 */
+      transition: opacity 1.5s ease-in-out;  /* 渐变显示效果 */
+      white-space: nowrap; /* 防止文本换行 */
+      overflow: visible;    /* 超出部分隐藏 */
+      text-overflow: ellipsis; /* 超出部分显示省略号 */
+  }
+
+  .tips {
+
+      display: block;  /* 让其成为块级元素，确保宽度能正常控制 */
+      position: absolute;
+      top: 100%;         /* 控制问题的垂直位置 */
+      left: 50%;       /* 水平居中 */
+      transform: translate(-50%, 0);  /* 确保居中 */
+      color: rgba(255, 70, 23, 0.789);
+      font-size: 20px;  /* 字体大小 */
+      transition: opacity 1.5s ease-in-out;  /* 渐变显示效果 */
+      white-space: nowrap; /* 防止文本换行 */
+      overflow: visible;    /* 超出部分隐藏 */
+      text-overflow: ellipsis; /* 超出部分显示省略号 */
+  }
+
+
+
+
+  .question.active {
+      opacity: 1;  /* 当前显示的图片和问题 */
+  }
+
+
+  .expandable-card .card-text-container {
+    max-height: 200px;
+    overflow-y: hidden;
+    position: relative;
+  }
+
+  .expandable-card.expanded .card-text-container {
+    max-height: none;
+  }
+
+
+  .expand-btn {
+    position: relative;
+    display: none;
+    background-color: rgba(255, 255, 255, 0.8);
+    /* margin-top: -20px; */
+    /* justify-content: center; */
+    color: #510c75;
+    border-color: transparent;
+  }
+
+  .expand-btn:hover {
+    background-color: rgba(200, 200, 200, 0.8);
+    text-decoration: none;
+    border-color: transparent;
+    color: #510c75;
+  }
+
+  .expand-btn:focus {
+    outline: none;
+    text-decoration: none;
+  }
+
+  .expandable-card:not(.expanded) .card-text-container:after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 90px;
+    background: linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 1));
+  }
+
+  .expandable-card:not(.expanded) .expand-btn {
+    margin-top: -40px;
+  }
+
+  .card-body {
+    padding-bottom: 5px;
+  }
+
+  .vertical-flex-layout {
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .figure-img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .adjustable-font-size {
+    font-size: calc(0.5rem + 2vw);
+  }
+
+  .chat-history {
+    flex-grow: 1;
+    overflow-y: auto;
+    /* overflow-x: hidden; */
+    padding: 5px;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+  }
+
+  #gradio pre {
+    background-color: transparent;
+  }
+</style>
+
+<body>
+
+
+  <section class="hero", style="height: 260px;">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">Evaluating Model Perception of Color Illusions in Photorealistic Scenes</h1>
+  
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">
+                <a href="" style="color:#f68946;font-weight:normal;">Lingjun Mao</a>,
+              </span>
+              <span class="author-block">
+                <a href="" style="color:#008AD7;font-weight:normal;">Zineng Tang</a>,
+              </span>
+              <span class="author-block">
+                <a href="" style="color:#F2A900;font-weight:normal;">Alane Suhr</a>
+              </span>
+            </div>
+  
+            <div class="is-size-5 publication-authors">
+              <p>University of California, Berkeley</p>
+            </div>
+  
+            <div class="publication-links">
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2412.06184" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://github.com/mao1207/RCID" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://huggingface.co/mao1207/RCID" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    <i class="fas fa-database"></i>
+                  </span>
+                  <span>Dataset</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://huggingface.co/mao1207/color-diffusion" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    <i class="fas fa-share-square"></i>
+                  </span>
+                  <span>Model</span>
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+
+
+  <section class="hero teaser">
+    <div class="container is-max-desktop">
+
+      <div class="text-container">
+          <p class="contrast-text">Contrast Illusion</p>
+      </div>
+
+      <div class="image-slider" id="slider1">
+        <p class="tips">Click the Image to See the Answer</p>
+        <img class="slider-image" src="images/contrast1.png" alt="contrast1" id="contrast1" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="contrast1_tips">Is the right side of the bottle (B) darker than the left (A), or maybe not?</p>
+        <img class="slider-image" src="images/contrast2.png" alt="contrast2" id="contrast2" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="contrast2_tips">How do the colors of the walls (A, B) on the left and right sides of the man compare? B is darker?</p>
+        <img class="slider-image" src="images/contrast3.png" alt="contrast3" id="contrast3" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="contrast3_tips">Which side of the walls, left (A) or right (B), is darker in color?</p>
+        <img class="slider-image" src="images/contrast4.png" alt="contrast4" id="contrast4" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="contrast4_tips">How do the shadow colors of the bushes (A, B) on the left and right sides of the girl compare?"</p>
+        <img class="slider-image" src="images/contrast5.png" alt="contrast5" id="contrast5" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="contrast5_tips">How do the shadow colors on the road's left and right sides (A, B) compare? Is B darker?</p>
+        <img class="slider-image" src="images/contrast6.png" alt="contrast6" id="contrast6" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="contrast6_tips">Is the mirrored surface B darker in color than A? Are you sure?</p>
+        <p class="question">Why is contrast important in design?</p>
+      </div>
+      
+    
+
+      <div class="text-container">
+          <p class="contrast-text">Stripe Illusion</p>
+      </div>
+      
+      <div class="image-slider" id="slider2">
+          <p class="tips">Click the Image to See the Answer</p>
+          <img class="slider-image" src="images/stripe1.png" alt="stripe1" id="stripe1" onclick="ClickChangeImage(this.id)">
+          <p class="question" id="stripe1_tips">Does the blue color of the books in the right column look duller compared to the left column?</p>
+          <img class="slider-image" src="images/stripe2.png" alt="stripe2" id="stripe2" onclick="ClickChangeImage(this.id)">
+          <p class="question" id="stripe2_tips">Do the yellow flowers on the right side seem more vibrant in color?</p>
+          <img class="slider-image" src="images/stripe3.png" alt="stripe3" id="stripe3" onclick="ClickChangeImage(this.id)">
+          <p class="question" id="stripe3_tips">How do the colors of the carrots on the left and right columns compare?</p>
+          <img class="slider-image" src="images/stripe4.png" alt="stripe4" id="stripe4" onclick="ClickChangeImage(this.id)">
+          <p class="question" id="stripe4_tips">Are the colors of the pink shelves in the bottom left and top right the same, or do they differ?</p>
+          <img class="slider-image" src="images/stripe5.png" alt="stripe5" id="stripe5" onclick="ClickChangeImage(this.id)">
+          <p class="question" id="stripe5_tips">Is the color of the violets at the bottom darker than at the top?</p>
+          <img class="slider-image" src="images/stripe6.png" alt="stripe6" id="stripe6" onclick="ClickChangeImage(this.id)">
+          <p class="question" id="stripe6_tips">How do the colors of the strawberry jam on the bread at the top and bottom compare?</p>
+      </div>
+
+      <div class="text-container">
+          <p class="contrast-text">Filter Illusion</p>
+      </div>
+
+      <div class="image-slider" id="slider3">
+        <p class="tips">Click the Image to See the Answer</p>
+        <img class="slider-image" src="images/filter1.png" alt="filter1" id="filter1" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="filter1_tips">What color is the bus in the image?</p>
+        <img class="slider-image" src="images/filter2.png" alt="filter2" id="filter2" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="filter2_tips">What color are the scattered flowers on the ground?</p>
+        <img class="slider-image" src="images/filter3.png" alt="filter3" id="filter3" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="filter3_tips">What color is the body of the airplane in the image?</p>
+        <img class="slider-image" src="images/filter4.png" alt="filter4" id="filter4" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="filter4_tips">What color are the T-shirts worn by the people in the image?</p>
+        <img class="slider-image" src="images/filter5.png" alt="filter5" id="filter5" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="filter5_tips">What is the color of the hat cake?</p>
+        <img class="slider-image" src="images/filter6.png" alt="filter6" id="filter6" onclick="ClickChangeImage(this.id)">
+        <p class="question" id="filter6_tips">What is the color of the fire hydrant in the image?</p>
+    </div>
+    
+
+      <div class="hero-body">
+        <h4 class="subtitle has-text-centered">
+          <br><br>
+          <p style="text-align: left;" width="70%">
+            Did you see that? Our visual perception often deceives us. This phenomenon is commonly referred to as a <strong>color illusion</strong>, which occurs when our perception of color differs from the actual pixel color.
+            However, it remains underexplored whether vision-language models (VLMs), trained on large scale human data, exhibit similar perceptual biases when confronted with such color illusions. We propose an auto mated framework for generating color illusion images, resulting in <strong>RCID</strong> (Realistic Color Illusion Dataset), a dataset of 19,000 realistic illusion images. Our experiments show that all studied VLMs exhibit perceptual biases similar human vision. Finally, we train a model to distinguish both human perception and actual pixel differences.
+          </p>
+        </h4>
+      </div>
+    </div>
+  </section>
+
+  <section class="section"  style="background-color:#efeff081">
+    <div class="container is-max-desktop">
+      <!-- Abstract. -->
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-six-fifths">
+          <h2 class="title is-3">Contribution</h2>
+          <div class="content has-text-justified" width="70%">
+            <p>
+              <ol type="1">
+                <li>
+                  We propose an automated framework for generating realistic illusion images and create a large, realistic dataset of color illusion images, named 
+                  <strong>
+                    <span style="text-decoration: underline;">R</span>ealistic 
+                    <span style="text-decoration: underline;">C</span>olor 
+                    <span style="text-decoration: underline;">I</span>llusion 
+                    <span style="text-decoration: underline;">D</span>ataset
+                  </strong> (RCID), to enhance the fairness and accuracy of model testing.
+                </li>
+                <li>We investigate underlying mechanisms of color illusions in VLMs, highlighting the combined influence of the vision system and prior knowledge. We also explore how external prompts and instruction tuning impact the models' performance on these illusions.</li>
+                <li>We propose an simple training method that enables models to understand human perception while also recognizing the actual pixel values.</li>
+              </ol>  
+           </p>
+  
+          </div>
+        </div>
+      </div>
+        
+    </div>
+  </section>
+
+
+  
+<section class="section">
+  <!-- Results. -->
+  <div class="columns is-centered has-text-centered">
+    <div class="column is-six-fifths">
+      <h2 class="title is-3">Illusion Dataset Construction</h2>
+    </div>
+  </div>
+  <!-- </div> -->
+  <!--/ Results. -->    
+<div class="container is-max-desktop">
+  <div style="display: inline-block; overflow: hidden; margin: 20px auto; height: auto; position: relative;">
+    <img src="images/main_figure.gif" style="position: relative; top: 0; left: -2px; width: 150%;">
+  </div>
+  
+
+
+  <div class="columns is-centered">
+    <div class="column is-full-width">
+      <div class="content has-text-justified">
+        <p>
+          Some prior works have also attempted to explore VLMs' performance on visual illusions. However, existing datasets have a drawback: they directly use illusion images found on the web. Most images (e.g., 60% for the IllusionVQA dataset) are well-known examples of these illusions; thus, VLMs have likely memorized humanlike behavioral responses to them, rather than relying on perceptual reasoning.
+        </p>
+        <p>
+          Additionally, the limited scale restricts the depth and variety of analyses that can be conducted. <strong>Therefore</strong>, we generated a larger-scale color illusion dataset, embedding color illusions into realistic world scenarios.
+        </p>
+        
+        <p>
+          The construction of our dataset involves three steps: 
+        </p>
+        <ol>
+          <li>
+            <strong>Image Generation.</strong> For contrast and stripe illusions, we use procedural code to generate simple illusion images, which are then processed by ControlNet to create realistic illusion images. For filter illusions, we directly apply contrasting color filters to the original images. Each type of illusion also includes a corresponding control group without any illusions for comparison.
+          </li>
+          <li>
+            <strong>Question Generation.</strong> We use GPT-4o to generate image-specific questions that are designed to evaluate the model's understanding of the illusion.
+          </li>
+          <li>
+            <strong>Human Feedback.</strong> We collect human participants' feedback on these images and adjust the original classification of “illusion” and “non-illusion” based on whether participants are deceived.
+          </li>
+        </ol>
+
+        <img src="images/main_figure_01.png" style="position: relative;">
+    </div>
+  </div>
+
+
+</section>
+
+<section class="section"  style="background-color:#efeff081">
+  <!-- Results. -->
+  <div class="columns is-centered has-text-centered">
+    <div class="column is-six-fifths">
+      <h2 class="title is-3">Data statistics of RCID</h2>
+    </div>
+  </div>
+  <!-- </div> -->
+  <!--/ Results. -->  
+  <section class="hero teaser">
+    <div class="container is-max-desktop">  
+      <img src="images/RCID_00.png" style="position: relative;">
+    </div>
+  </section>
+</section>
+
+<section class="section">
+
+  <div class="columns is-centered has-text-centered">
+    <div class="column is-six-fifths">
+      <h2 class="title is-3">Main Results</h2>
+    </div>
+  </div>
+
+  <div class="columns is-centered">
+    <div class="container is-max-desktop"> 
+      <div class="column is-full-width">
+        <div class="content has-text-justified">
+          <p>
+            We evaluate a range of open-source vision-language models using generated illusion and non-illusion images in our development set, with questions explicitly asking for color judgments 'Based on pixel values' or 'Based on human perception'. The results show that, after fine-tuning on non-illusion images, these models achieve high accuracy (75%) on non-illusion images, while their accuracy on illusion images is significantly lower.
+            We find that explicitly querying for color judgments 'Based on  pixel values' or 'Based on human perception' does not lead to significant changes in model performance. 
+            In addition, models are likely to produce responses that are completely inaccurate, matching neither pixel values nor human perception.
+            This suggests that while the models are misled by color illusions to some extent, they still struggle to fully model human perception.
+          </p>
+          <img src="images/main_results_01.png" style="position: relative;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<section class="section" style="background-color:#efeff081">
+  <!-- Results. -->
+  <div class="columns is-centered has-text-centered">
+    <div class="column is-six-fifths">
+      <h2 class="title is-3">Experiment Analysis</h2>
+    </div>
+  </div>
+  <!-- 小标题开始 -->
+  <div class="columns is-centered">
+    <div class="container is-max-desktop"> 
+      <div class="column is-full-width">
+        <div class="content has-text-justified">
+          <h3 class="title is-4">1. Factors affecting the strength of color illusions</h3>
+          <p>We explore a range of visual factors that may influence the strength of color illusions and compare whether these factors affect human perception and VLMs in the same way. We focus on three potential influencing factors: the orientation of the illusion, the contrast between foreground and background colors (for contrast illusions only), and the number of stripes (for filter illusions only). Overall, our findings indicate that these factors significantly impact the strength of the illusion. 
+            For example, altering certain factors, such as increasing the color contrast between the foreground and background, can turn a non-illusion image into an illusion image. And these effects are consistent across both humans and VLMs. In these experiments, we use LLaVA-1.5 (7B) as our tested model.</p>
+          <p>Deception rates of humans and VLMs across different structural patterns:</p>
+          <img src="images/location.png" style="position: relative;">
+          <p></p>
+          <p>Error rates of humans and LLaVA across different conditions in color illusions:</p>
+          <img src="images/factors.png" style="position: relative;">
+
+          <h3 class="title is-4">2. The impact of prompting methods and fine-Tuning on model performance</h3>
+          <p>We investigate whether external prompts can influence VLM responses. Unlike the main experiments illustrated in Figure X, here we aim to identify the model's bias toward predicting answers based on either human-like perception or pixel-level values, without explicitly specifying this distinction in the question.</p>
+          <p>To achieve this, we evaluate several prompting methods: (1) a simple prompt that focuses solely on questions about color comparisons; (2) chain of thought (CoT), where the model is guided to first consider factors in the image that might affect color perception; (3) emphasizing the illusion by explicitly informing the model that the image contains an illusion, without specifying its type; and (4) providing few-shot examples, using either no-illusion (NI) answers or human-like (HL) answers as 3-shot examples.</p>
+          <p>Additionally, we also explore whether fine-tuning the model on no-illusion (NI) or human-like (HL) examples can improve its understanding of color illusions.</p>
+          <img src="images/prompts_effect_01.png" style="position: relative; width: 60%; left: 20%">
+
+          <h3 class="title is-4">3. Purely vision-based models (e.g., CNNs) can also be deceived by visual illusions.</h3>
+          <p>To investigate whether VLMs' perceptual biases originate from their visual components, we test a range of purely visual models. We design a simple classification task based on simple rectangle-based contrast illusions. n this task, we generate backgrounds with varying brightness on both sides and place a rectangle on each side. The vision model is trained as a three-way classifier on 6,000 non-illusion images to predict which rectangle appears darker, or if their colors are identical, stopping when the loss shows no significant decrease. It is then tested on 1,000 non-illusion and 1,000 illusion images.</p>
+          <img src="images/purely_vision_model.png" style="position: relative">
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- 小标题结束 -->
+  
+</section>
+
+
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <h2 class="title">BibTeX</h2>
+      <pre><code>
+        @misc{mao2024evaluatingmodelperceptioncolor,
+          title={Evaluating Model Perception of Color Illusions in Photorealistic Scenes}, 
+          author={Lingjun Mao and Zineng Tang and Alane Suhr},
+          year={2024},
+          eprint={2412.06184},
+          archivePrefix={arXiv},
+          primaryClass={cs.CV},
+          url={https://arxiv.org/abs/2412.06184}, 
+        }
+  
+  </code></pre>
+    </div>
+  </section>
+
+  <script>
+
+      function ClickChangeImage(imageId) {
+        // 获取图片元素
+
+        var img = document.getElementById(imageId);
+        var tips = document.getElementById(imageId+'_tips');
+        
+        // 更改图片的 src 属性，替换为 gif 图片
+        img.src = 'images/' + imageId + '.gif';  // 替换为您的 GIF 图片路径
+
+        answer = 'They are exactly same!';
+
+        if (imageId == 'filter1'){
+          answer = 'It looks red? No, it\'s actually yellow-green.';
+        }
+
+        if (imageId == 'filter2'){
+          answer = 'Yellow? No, it\'s actually dark gray.';
+        }
+
+        if (imageId == 'filter3'){
+          answer = 'The airplane is dark purple, not blue.';
+        }
+
+        if (imageId == 'filter4'){
+          answer = 'The clothes are yellow-green, not red.';
+        }
+
+        if (imageId == 'filter5'){
+          answer = 'The hat cake is dark purple.';
+        }
+
+        if (imageId == 'filter6'){
+          answer = 'Not yellow! The fire hydrant is dark purple.';
+        }
+
+
+
+        setTimeout(function() {
+          tips.textContent = answer;
+          tips.style.color = 'red'
+        }, 3200);  // 3 秒后切换回 PNG
+  
+
+        setTimeout(function() {
+          img.src = 'images/' + imageId + '.png';  // 恢复为原始 PNG 图片
+        }, 4500);  // 3 秒后切换回 PNG
+      }
+
+
+      // 设置两个轮播器
+      function setupSlider(sliderId) {
+          let currentIndex = 5;  // 当前图片索引
+          const slider = document.getElementById(sliderId);
+          const images = slider.querySelectorAll('.slider-image');  // 获取所有图片
+          const questions = slider.querySelectorAll('.question');  // 获取所有问题
+
+          // 切换图片和问题的函数
+          function changeImage() {
+              // 移除所有图片和问题的 active 类
+              images.forEach((img) => {
+                  img.classList.remove('active');
+              });
+              questions.forEach((question) => {
+                  question.classList.remove('active');
+              });
+
+              // 显示当前图片和问题
+              currentIndex = (currentIndex + 1) % images.length;  // 循环切换图片
+              images[currentIndex].classList.add('active');
+              questions[currentIndex].classList.add('active');  // 显示当前问题
+          }
+
+          // 启动轮播，4秒切换一次
+          setInterval(changeImage, 10000);
+
+          // 初始化显示第一张图片和问题
+          changeImage();
+      }
+
+      // 启动图片轮播，每4秒切换一次
+
+      setupSlider("slider1");
+      setupSlider("slider2");
+      setupSlider("slider3");
+
+
+  </script>
+
+</body>
+
+</html>
